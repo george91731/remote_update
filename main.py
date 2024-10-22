@@ -1,111 +1,110 @@
 from smbus2 import SMBus, i2c_msg
 import time
 
-# i2c slave addr
-MAX10_I2C_SLAVE_ADDRESS = 0x41
+# I2C slave 地址和总线号
+MAX10_I2C_SLAVE_ADDRESS = 0x55
 I2C_BUS_NUMBER = 1
 
-# initialize
-bus = SMBus(I2C_BUS_NUMBER)
+def reverse_bytes(data):
+    byte_array = data.to_bytes(4, 'big')
+    return int.from_bytes(byte_array[::-1], 'big')
 
-
-# 讀取RPD檔案
-def read_rpd_file(file_path):
+def write_data(bus, address, data):
+    address_bytes = list(address.to_bytes(4, 'big'))
+    data_bytes = list(reverse_bytes(data).to_bytes(4, 'big'))  
     
-    with open(file_path, 'rb') as file:
-        rpd_data = file.read()
-        print(rpd_data)
-    return rpd_data
-
-def wait_for_ack():
-    ack = bus.read_byte
-    try:       
-        _ = bus.read_byte()
-        return True
-    except IOError:
-        return False
-
-def write_unprotect_sector(bus, address, data):
-    msg = i2c_msg.write(MAX10_I2C_SLAVE_ADDRESS, [address] + list(data.to_bytes(4, 'big')))
-    bus.i2c_rdwr(msg)
+    packets = address_bytes + data_bytes
+    print(f'Writing to address {address:08X}: data {data:08X}')
+    
+    for i in range(0, len(packets), 2):
+        byte1 = packets[i]
+        byte2 = packets[i + 1] if (i + 1) < len(packets) else 0x00
+        print(f'Sending bytes: {byte1:02X}, {byte2:02X}')#
+        msg = i2c_msg.write(MAX10_I2C_SLAVE_ADDRESS, [byte1, byte2])
+        bus.i2c_rdwr(msg)
 
 def erase_sector(bus, address, data):
-    msg = i2c_msg.write(MAX10_I2C_SLAVE_ADDRESS, [address] + list(data.to_bytes(4, 'big')))
-    bus.i2c_rdwr(msg)
+    write_data(bus, address, data)
 
 def read_busy_bit(bus, address):
-    # Write address to read from
-    write_msg = i2c_msg.write(MAX10_I2C_SLAVE_ADDRESS, [address])
-    bus.i2c_rdwr(write_msg)
-    # Read 4 bytes of data
+    address_bytes = list(address.to_bytes(4, 'big'))
+    for i in range(0, len(address_bytes), 2):
+        byte1 = address_bytes[i]
+        byte2 = address_bytes[i + 1] if (i + 1) < len(address_bytes) else 0x00
+        msg = i2c_msg.write(MAX10_I2C_SLAVE_ADDRESS, [byte1, byte2])
+        bus.i2c_rdwr(msg) 
+
     read_msg = i2c_msg.read(MAX10_I2C_SLAVE_ADDRESS, 4)
     bus.i2c_rdwr(read_msg)
-    return list(read_msg)
+    busy_bit = int.from_bytes(read_msg, 'big')
+    print(f'Busy bit value at address {address:08X}: {busy_bit:08X}')
+    
+    return busy_bit
+
 
 def program_flash(bus, address, data):
-    msg = i2c_msg.write(MAX10_I2C_SLAVE_ADDRESS, [address] + list(data.to_bytes(4, 'big')))
-    bus.i2c_rdwr(msg)
-
-def re_protect_sector(bus, address, data):
-    msg = i2c_msg.write(MAX10_I2C_SLAVE_ADDRESS, [address] + list(data.to_bytes(4, 'big')))
-    bus.i2c_rdwr(msg)
-
-def re_configure(bus, address, data):   
-    msg = i2c_msg.write(MAX10_I2C_SLAVE_ADDRESS, [address] + list(data.to_bytes(4, 'big')))
-    bus.i2c_rdwr(msg)
+    addr_bytes = address.to_bytes(4, 'big')
+    data_bytes = reverse_bytes(data).to_bytes(4, 'big')
+    
+    packets = addr_bytes + data_bytes
+    print(f'Programming address {address:08X}: data {data:08X}')  # 打印调试信息
+    
+    for i in range(0, len(packets), 2):
+        byte1 = packets[i]
+        byte2 = packets[i + 1] if (i + 1) < len(packets) else 0x00
+        msg = i2c_msg.write(MAX10_I2C_SLAVE_ADDRESS, [byte1, byte2])
+        bus.i2c_rdwr(msg)
 
 def main():
-    with SMBus(1) as bus:  
-        # Unprotect Sector
-        write_unprotect_sector(bus, 0x00200024, 0xfcffffff)
+    with SMBus(I2C_BUS_NUMBER) as bus:  
+        # 1. un-protect
+        write_data(bus, 0x00200024, 0xfcffffff)
+        time.sleep(0.1)
         
-        # Erase Sector CFM2[Sector2]
+        # 2.  erase CFM2[Sector2]  ?
         erase_sector(bus, 0x00200024, 0xfcafffff)
+        time.sleep(0.1)
         
-        # Check if erase done
-        busy_bit = read_busy_bit(bus, 0x00200020)
-        print(f"Erase Check: {busy_bit}")
+        # 3. check busy bit
+        while read_busy_bit(bus, 0x00200020) & 0x3 != 0x0:
+            time.sleep(0.1)
         
-        # Erase Sector CFM1[Sector3]
+        # 4. erase CFM1[Sector3]    ?
         erase_sector(bus, 0x00200024, 0xfcbfffff)
+        time.sleep(0.1)
         
-        # Check if erase done
-        busy_bit = read_busy_bit(bus, 0x00200020)
-        print(f"Erase Check: {busy_bit}")
+        # 5. check busy bit
+        while read_busy_bit(bus, 0x00200020) & 0x3 != 0x0:
+            time.sleep(0.1)
         
-        # Reset erase bits to default
-        write_unprotect_sector(bus, 0x00200024, 0xfcffffff)
+        # 6. write erase sector bits to default
+        write_data(bus, 0x00200024, 0xfcffffff)
+        time.sleep(0.1)
         
-        # Programming Flash
-        # Read the data from file
+        # 7. program flash
+        addr = 0x00004000
+        
+        # read rpd flow
         with open('123.txt', 'r') as f:
-            addr = 0x00004000
-            for line in f:           
-                hex_data = line.strip().split()         
-                program_flash(bus, addr, hex_data)
+            for line in f:                
+                hex_data = int(line.strip(), 16)
+                data_reversed = reverse_bytes(hex_data)               
                 
-                # 驗證寫入
-                busy_bit = read_busy_bit(bus, 0x00200020)
-                print(f"Write Check at {hex(addr)}: {busy_bit}")                 
+                program_flash(bus, addr, data_reversed)
+                
+                # check write done
+                while read_busy_bit(bus, 0x00200020) & 0x3 != 0x0:
+                    time.sleep(0.1)
+                
                 addr += 4
         
-        # Re-protect sectors
-        re_protect_sector(bus, 0x00200024, 0xffffffff)    
-        # Re-Configure
-        re_configure(bus, 0x00200004, 0x00000001)
+        # 8. re-protect
+        write_data(bus, 0x00200024, 0xffffffff)
+        time.sleep(0.1)
 
-        
+        # 9. re-configure
+        write_data(bus, 0x00200004, 0x00000001)
+        time.sleep(0.1)
+       
 if __name__ == "__main__":
     main()
-
-#照bmc_PROGRAM文件步驟下指令，依照各個動作分別設定function
-
-
-
-
-
-rpd_file_path = 'D:\Training\remoteupdate\RPi\rpd_file\ '
-# update_firmware(rpd_file_path)
-read_rpd_file(rpd_file_path)
-
-
