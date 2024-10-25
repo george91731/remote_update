@@ -69,7 +69,7 @@ def main():
         # 1. un-protect
         write_data(bus, 0x00200024, 0xfcffffff)     
         
-        # 2.  erase CFM2[Sector2]  ?
+        # 2.  erase CFM2[Sector2]
         erase_sector(bus, 0x00200024, 0xfcafffff)        
         
         # 3. check busy bit
@@ -77,7 +77,7 @@ def main():
             print('Still busy...')
             time.sleep(0.1)
         
-        # 4. erase CFM1[Sector3]    ?
+        # 4. erase CFM1[Sector3]  
         erase_sector(bus, 0x00200024, 0xfcbfffff)       
         
         # 5. check busy bit
@@ -90,7 +90,7 @@ def main():
    
         
         # 7. program flash
-        addr = 0x00004000         
+        addr = 0x00008000         
  
         with open('Single.txt', 'r') as f:
             for line in f:
@@ -113,6 +113,7 @@ def main():
 
         # 9. re-configure
         write_data(bus, 0x00200004, 0x00000001)
+        write_data(bus, 0x00200000, 0x00000001)
         time.sleep(0.1)
 
 if __name__ == "__main__":
