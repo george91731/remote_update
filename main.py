@@ -33,9 +33,15 @@ def read_busy_bit(bus, address):
     read_msg = i2c_msg.read(MAX10_I2C_SLAVE_ADDRESS, 4)
     try:
         bus.i2c_rdwr(read_msg)
-        busy_bit = int.from_bytes(read_msg, 'big')
-        print(f'Busy bit value at address {address:08X}: {busy_bit:08X}')
+        read_bytes = list(read_msg)
+        print(f'Read bytes: {" ".join(f"{byte:02X}" for byte in read_bytes)}')
+
+        # reverse read bytes
+        reversed_bytes = bytes(read_bytes[::-1])
+        busy_bit = int.from_bytes(reversed_bytes, 'big')
         
+        # check bit1-0 = 00
+        print(f'Busy bit value at address {address:08X} after reverse: {busy_bit:08X}')
         if (busy_bit & 0x3) == 0x0:
             print(f'Slave is idle')
             return True  
