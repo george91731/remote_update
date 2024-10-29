@@ -65,27 +65,32 @@ def program_flash(bus, address, data):
 
 def program_flash_from_file(bus, file_path, START_ADDR, END_ADDR):
     addr = START_ADDR
+    addr_increment = 4
 
     with open(file_path, 'r') as f:
-        for line in f:
+        lines = f.readlines()
+        for line in lines:
             hex_data = line.strip().split()
             for i in range(0, len(hex_data), 4):
                 if addr >= END_ADDR:
                     print(f'Reached end address: {addr:08X}')
                     return
-                if i + 3 >= len(hex_data):
-                    break
+                
+                data_str = ''.join(hex_data[i:i+4])
+                                        
+                if len(data_str) < 8:
+                    data_str = data_str.ljust(8, '0')
+
                 try:
-                    data_str = ''.join(hex_data[i:i+4])
                     data_32bit = int(data_str, 16)
-                    print(f'Programming addr {addr:08X} with data {data_32bit:08X}')  # 调试信息
-                    program_flash(bus, addr, data_32bit)
-
+                    print(f'Programming addr {addr:08X} with data {data_32bit:08X}') 
+                    program_flash(bus, [(addr, data_32bit)])
+                    
                     while not read_busy_bit(bus, 0x00200020):
-                        print('Still busy...')
-                    time.sleep(0.1)
+                        print('Checking if busy...')                
 
-                    addr += 4
+                    addr += addr_increment
+
                 except Exception as e:
                     print(f"Error: {e} for data: {hex_data[i:i+4]}")
 
@@ -114,8 +119,7 @@ def main():
         write_data(bus, 0x00200024, 0xf9ffffff)   
         
         # 7. program flash
-        program_flash_from_file(bus, 'Single.txt', 0x00008000, 0x0002afff)
-        # program_flash_from_file(bus, 'Single.txt', 0x0001c800, 0x0002afff)
+        program_flash_from_file(bus, 'Single_cfm1.txt', 0x00008000, 0x00026fff) 
  
 
         # 8. re-protect
@@ -138,7 +142,7 @@ def main():
         write_data(bus, 0x00200024, 0xf9ffffff)   
         
         # 5. program flash
-        program_flash_from_file(bus, 'Single.txt', 0x0002b000, 0x0004dfff) 
+        program_flash_from_file(bus, 'Single_cfm0.txt', 0x0002b000, 0x00049fff) 
  
 
         # 8. re-protect
