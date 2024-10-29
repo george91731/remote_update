@@ -114,8 +114,8 @@ def main():
         write_data(bus, 0x00200024, 0xf9ffffff)   
         
         # 7. program flash
-        program_flash_from_file(bus, 'Single.txt', 0x00008000, 0x0001c7ff)
-        program_flash_from_file(bus, 'Single.txt', 0x0001c800, 0x0002afff)
+        program_flash_from_file(bus, 'Single.txt', 0x00008000, 0x0002afff)
+        # program_flash_from_file(bus, 'Single.txt', 0x0001c800, 0x0002afff)
  
 
         # 8. re-protect
