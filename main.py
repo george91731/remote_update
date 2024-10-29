@@ -63,58 +63,90 @@ def program_flash(bus, address, data):
     msg = i2c_msg.write(MAX10_I2C_SLAVE_ADDRESS, packets)
     bus.i2c_rdwr(msg)
 
+def program_flash_from_file(bus, file_path, START_ADDR, END_ADDR):
+    addr = START_ADDR
 
-def main():
-    with SMBus(I2C_BUS_NUMBER) as bus:  
-        # 1. un-protect
-        write_data(bus, 0x00200024, 0xfcffffff)     
-        
-        # 2.  erase CFM2[Sector2]
-        erase_sector(bus, 0x00200024, 0xfcafffff)        
-        
-        # 3. check busy bit
-        while not read_busy_bit(bus, 0x00200020):
-            print('Still busy...')
-            time.sleep(0.1)
-        
-        # 4. erase CFM1[Sector3]  
-        erase_sector(bus, 0x00200024, 0xfcbfffff)       
-        
-        # 5. check busy bit
-        while not read_busy_bit(bus, 0x00200020):
-            print('Still busy...')
-            time.sleep(0.1)
-        
-        # 6. write erase sector bits to default
-        write_data(bus, 0x00200024, 0xfcffffff)
-   
-        
-        # 7. program flash
-        addr = 0x00008000         
- 
-        with open('Single.txt', 'r') as f:
-            for line in f:
-                hex_data = line.strip().split()              
-                for i in range(0, len(hex_data), 4):
-                    if i + 3 >= len(hex_data):
-                        break
-                    data_32bit = int(''.join(hex_data[i:i+4]), 16)                   
-                    program_flash(bus, addr, data_32bit)  
+    with open(file_path, 'r') as f:
+        for line in f:
+            hex_data = line.strip().split()
+            for i in range(0, len(hex_data), 4):
+                if addr >= END_ADDR:
+                    print(f'Reached end address: {addr:08X}')
+                    return
+                if i + 3 >= len(hex_data):
+                    break
+                try:
+                    data_str = ''.join(hex_data[i:i+4])
+                    data_32bit = int(data_str, 16)
+                    print(f'Programming addr {addr:08X} with data {data_32bit:08X}')  # 调试信息
+                    program_flash(bus, addr, data_32bit)
 
                     while not read_busy_bit(bus, 0x00200020):
                         print('Still busy...')
                     time.sleep(0.1)
-                    
+
                     addr += 4
+                except Exception as e:
+                    print(f"Error: {e} for data: {hex_data[i:i+4]}")
+
+
+def main():
+    with SMBus(I2C_BUS_NUMBER) as bus:  
+        ######################################Image 2 flow######################################
+        # 1. un-protect sector 3 & 4
+        write_data(bus, 0x00200024, 0xf9ffffff)     
         
+        # 2.  erase Sector3
+        erase_sector(bus, 0x00200024, 0xf9bfffff)        
+        
+        # 3. check busy bit
+        while not read_busy_bit(bus, 0x00200020):
+            print('Still busy...')         
+        
+        # 4. erase Sector4
+        erase_sector(bus, 0x00200024, 0xf9cfffff)       
+        
+        # 5. check busy bit
+        while not read_busy_bit(bus, 0x00200020):
+            print('Still busy...')            
+        
+        # 6. write erase sector bits to default
+        write_data(bus, 0x00200024, 0xf9ffffff)   
+        
+        # 7. program flash
+        program_flash_from_file(bus, 'Single.txt', 0x00008000, 0x00026fff) 
+ 
+
         # 8. re-protect
         write_data(bus, 0x00200024, 0xffffffff)
-        time.sleep(0.1)
+        
+        ######################################Image 2 flow######################################
 
-        # 9. re-configure
-        write_data(bus, 0x00200004, 0x00000001)
-        write_data(bus, 0x00200000, 0x00000001)
-        time.sleep(0.1)
+        ######################################Image 1 flow######################################
+        # 1. un-protect sector 5
+        write_data(bus, 0x00200024, 0xf7ffffff)     
+        
+        # 2.  erase Sector3
+        erase_sector(bus, 0x00200024, 0xf7dfffff)        
+        
+        # 3. check busy bit
+        while not read_busy_bit(bus, 0x00200020):
+            print('Still busy...')             
+         
+        # 4. write erase sector bits to default
+        write_data(bus, 0x00200024, 0xf9ffffff)   
+        
+        # 5. program flash
+        program_flash_from_file(bus, 'Single.txt', 0x0002b000, 0x00049fff) 
+ 
+
+        # 8. re-protect
+        write_data(bus, 0x00200024, 0xffffffff)      
+
+        ######################################Image 1 flow######################################
+        # re-configure
+        # write_data(bus, 0x00200004, 0x00000001)
+        # time.sleep(0.1)
 
 if __name__ == "__main__":
     main()
