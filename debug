@@ -1,2 +1,10 @@
 Error: 'bytes' object has no attribute 'to_bytes' for data: ['00', '00', 'c0', 'c6']
 Extracted hex data: ['f', '47', 'ff', '4d', 'ff', '49', 'c2', '43', 'ff', '42', 'fb', 'e3', '0c', '6']
+data_bytes = bytes(int(hex_data[j], 16) for j in range(i, i+4))
+                    
+                    if len(data_bytes) != 4:
+                        print(f'Invalid data length: {len(data_bytes)} for data: {data_bytes.hex().upper()}')
+                        continue
+
+                    # 调试信息
+                    print(f'Programming addr {addr:08X} with data {data_bytes.hex().upper()}')
