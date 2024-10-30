@@ -8,3 +8,19 @@ data_bytes = bytes(int(hex_data[j], 16) for j in range(i, i+4))
 
                     # 调试信息
                     print(f'Programming addr {addr:08X} with data {data_bytes.hex().upper()}')
+
+
+
+Extracted hex data: ['ff', 'ff', 'ff', 'e1', '56', '56', '56', '56', 'ff', 'ff', 'ff', 'eb', 'ff', 'ff', 'ff', 'e3']
+Programming addr 00008020 with data FFFFFFE3
+Sending address for reading busy bit check: 00 20 00 20
+Read bytes: 20 00 00 FF
+Busy bit value at address 00200020 after reverse: FF000020
+Slave is idle
+Extracted hex data: ['ff', 'ff', 'ff', 'eb', 'ff', 'ff', 'ff', 'e7', 'ff', 'ff', 'ff', 'e3', 'ff', 'ff', 'ff', 'e3']
+Programming addr 00008024 with data FFFFFFE3
+Sending address for reading busy bit check: 00 20 00 20
+Read bytes: 20 00 00 FF
+Busy bit value at address 00200020 after reverse: FF000020
+Slave is idle
+
