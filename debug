@@ -1,1 +1,2 @@
+Error: 'bytes' object has no attribute 'to_bytes' for data: ['00', '00', 'c0', 'c6']
 Extracted hex data: ['f', '47', 'ff', '4d', 'ff', '49', 'c2', '43', 'ff', '42', 'fb', 'e3', '0c', '6']
