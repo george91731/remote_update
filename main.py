@@ -22,46 +22,21 @@ def erase_sector(bus, address, data):
     write_data(bus, address, data)
 
 def read_busy_bit(bus, address):    
-    address_bytes = list(address.to_bytes(4, 'big'))
-    print(f'Sending address for reading busy bit check: {" ".join(f"{byte:02X}" for byte in address_bytes)}') 
+    address_bytes = list(address.to_bytes(4, 'big'))   
     write_msg = i2c_msg.write(MAX10_I2C_SLAVE_ADDRESS, address_bytes)
-    try:
-        bus.i2c_rdwr(write_msg)
-    except Exception as e:
-        print(f"Write Address Error: {e}")    
-
+    bus.i2c_rdwr(write_msg)
     read_msg = i2c_msg.read(MAX10_I2C_SLAVE_ADDRESS, 4)
-    try:
-        bus.i2c_rdwr(read_msg)
-        read_bytes = list(read_msg)
-        print(f'Read bytes: {" ".join(f"{byte:02X}" for byte in read_bytes)}')
-
+    bus.i2c_rdwr(read_msg)
+    read_bytes = list(read_msg)
         # reverse read bytes
-        reversed_bytes = bytes(read_bytes[::-1])
-        busy_bit = int.from_bytes(reversed_bytes, 'big')
-        
-        # check bit1-0 = 00
-        print(f'Busy bit value at address {address:08X} after reverse: {busy_bit:08X}')
-        if (busy_bit & 0x3) == 0x0:
-            print(f'Slave is idle')
-            return True  
-        else:
-            print(f'Slave is busy')
-            return False
-            
-    except Exception as e:
-        print(f"Read Error: {e}")
-        return False
-
+    reversed_bytes = bytes(read_bytes[::-1])
+    busy_bit = int.from_bytes(reversed_bytes, 'big')
+    
+    # check bit1-0 = 00
+    print(f'Busy bit value at address {address:08X} after reverse: {busy_bit:08X}')
+    return (busy_bit & 0x3) == 0x0
 
 def program_flash(bus, addr, data):
-    # addr_bytes = address.to_bytes(4, 'big')
-    # data_bytes = data.to_bytes(4, 'big')    
-    # packets = addr_bytes + data_bytes
-    # print(f'Programming address {address:08X}: data {data:08X}')     
-    # print(f'Sending packets: {" ".join(f"{byte:02X}" for byte in packets)}')
-    # msg = i2c_msg.write(MAX10_I2C_SLAVE_ADDRESS, packets)
-    # bus.i2c_rdwr(msg)
     try:
         outbuf = bytearray(8)
         outbuf[0] = (addr >> 24) & 0xFF
